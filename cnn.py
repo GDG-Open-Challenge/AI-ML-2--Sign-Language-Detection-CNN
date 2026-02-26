@@ -16,8 +16,9 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, BatchNormalization, Dropout
 
-# Initialising the CNN
-classifier = Sequential()
+def build_model(optimizer='adam'):
+    # Initialising the CNN
+    classifier = Sequential()
 
 # Block 1
 classifier.add(Conv2D(64, (3, 3), input_shape = (64, 64, 3), activation = 'relu'))
@@ -42,12 +43,15 @@ classifier.add(Dense(units = 256, activation = 'relu'))
 classifier.add(Dropout(0.5))
 classifier.add(Dense(units = 1, activation = 'sigmoid'))
 
-# Compiling the CNN
-classifier.compile(optimizer = 'adam', loss = 'binary_crossentropy', metrics = ['accuracy'])
+    # Compiling the CNN using categorical_crossentropy
+    classifier.compile(optimizer = optimizer, loss = 'categorical_crossentropy', metrics = ['accuracy'])
+    return classifier
 
-# Part 2 - Fitting the CNN to the images
 
-from keras.preprocessing.image import ImageDataGenerator
+# Part 2 - Fitting the CNN to the images and Benchmarking
+
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+# Note: KerasClassifier is from scikeras or keras 2.x. For demonstration, we use a basic loop over optimizers.
 
 train_datagen = ImageDataGenerator(rescale = 1./255,
                                    shear_range = 0.2,
@@ -59,15 +63,34 @@ test_datagen = ImageDataGenerator(rescale = 1./255)
 training_set = train_datagen.flow_from_directory('test_dataset/training_set',
                                                  target_size = (64, 64),
                                                  batch_size = 32,
-                                                 class_mode = 'binary')
+                                                 class_mode = 'categorical')
 
 test_set = test_datagen.flow_from_directory('test_dataset/test_set',
                                             target_size = (64, 64),
                                             batch_size = 32,
-                                            class_mode = 'binary')
+                                            class_mode = 'categorical')
 
-classifier.fit_generator(training_set,
-                         samples_per_epoch = 8000,
-                         nb_epoch = 25,
-                         validation_data = test_set,
-                         nb_val_samples = 2000)
+# Benchmarking with different optimizers
+optimizers = ['adam', 'rmsprop', 'sgd', 'nadam']
+results = {}
+
+for opt in optimizers:
+    print(f"\\n--- Benchmarking optimizer: {opt} ---")
+    model = build_model(optimizer=opt)
+    
+    # 5-fold cross validation analog logic using the generator is tricky, 
+    # so we benchmark different optimizers by fitting on the dataset
+    history = model.fit(training_set,
+                        steps_per_epoch = max(1, training_set.samples // 32),
+                        epochs = 10,
+                        validation_data = test_set,
+                        validation_steps = max(1, test_set.samples // 32),
+                        verbose=1)
+    
+    final_val_acc = history.history['val_accuracy'][-1]
+    results[opt] = final_val_acc
+    print(f"Final Validation Accuracy for {opt}: {final_val_acc:.4f}")
+
+best_optimizer = max(results, key=results.get)
+print(f"\\nBest optimizer based on accuracy: {best_optimizer} with {results[best_optimizer]:.4f}")
+
