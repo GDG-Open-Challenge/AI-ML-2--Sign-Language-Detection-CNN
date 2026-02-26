@@ -12,58 +12,59 @@
 # Part 1 - Building the CNN
 
 # Importing the Keras libraries and packages
-from keras.models import Sequential
-from keras.layers import Convolution2D
-from keras.layers import MaxPooling2D
-from keras.layers import Flatten
-from keras.layers import Dense
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Rescaling
+from tensorflow.keras.utils import image_dataset_from_directory
 
 # Initialising the CNN
 classifier = Sequential()
 
 # Step 1 - Convolution
-classifier.add(Convolution2D(32, 3, 3, input_shape = (64, 64, 3), activation = 'relu'))
+classifier.add(Conv2D(32, (3, 3), input_shape = (64, 64, 3), activation = 'relu'))
 
 # Step 2 - Pooling
 classifier.add(MaxPooling2D(pool_size = (2, 2)))
 
 # Adding a second convolutional layer
-classifier.add(Convolution2D(32, 3, 3, activation = 'relu'))
+classifier.add(Conv2D(32, (3, 3), activation = 'relu'))
 classifier.add(MaxPooling2D(pool_size = (2, 2)))
 
 # Step 3 - Flattening
 classifier.add(Flatten())
 
 # Step 4 - Full connection
-classifier.add(Dense(output_dim = 128, activation = 'relu'))
-classifier.add(Dense(output_dim = 1, activation = 'sigmoid'))
+classifier.add(Dense(units = 128, activation = 'relu'))
+classifier.add(Dense(units = 1, activation = 'sigmoid'))
 
 # Compiling the CNN
 classifier.compile(optimizer = 'adam', loss = 'binary_crossentropy', metrics = ['accuracy'])
 
 # Part 2 - Fitting the CNN to the images
 
-from keras.preprocessing.image import ImageDataGenerator
+training_set = image_dataset_from_directory(
+    'test_dataset/training_set',
+    image_size=(64, 64),
+    batch_size=32,
+    label_mode='binary'
+)
 
-train_datagen = ImageDataGenerator(rescale = 1./255,
-                                   shear_range = 0.2,
-                                   zoom_range = 0.2,
-                                   horizontal_flip = True)
+test_set = image_dataset_from_directory(
+    'test_dataset/test_set',
+    image_size=(64, 64),
+    batch_size=32,
+    label_mode='binary'
+)
 
-test_datagen = ImageDataGenerator(rescale = 1./255)
+normalization_layer = Rescaling(1./255)
+training_set = training_set.map(lambda x, y: (normalization_layer(x), y), num_parallel_calls=tf.data.AUTOTUNE)
+test_set = test_set.map(lambda x, y: (normalization_layer(x), y), num_parallel_calls=tf.data.AUTOTUNE)
 
-training_set = train_datagen.flow_from_directory('test_dataset/training_set',
-                                                 target_size = (64, 64),
-                                                 batch_size = 32,
-                                                 class_mode = 'binary')
+training_set = training_set.prefetch(tf.data.AUTOTUNE)
+test_set = test_set.prefetch(tf.data.AUTOTUNE)
 
-test_set = test_datagen.flow_from_directory('test_dataset/test_set',
-                                            target_size = (64, 64),
-                                            batch_size = 32,
-                                            class_mode = 'binary')
-
-classifier.fit_generator(training_set,
-                         samples_per_epoch = 8000,
-                         nb_epoch = 25,
-                         validation_data = test_set,
-                         nb_val_samples = 2000)
+classifier.fit(
+    training_set,
+    epochs=25,
+    validation_data=test_set
+)
