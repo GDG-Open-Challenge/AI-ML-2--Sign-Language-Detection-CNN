@@ -14,30 +14,34 @@
 # Importing the Keras libraries and packages
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
-from sklearn.model_selection import KFold, cross_val_score
-import numpy as np
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, BatchNormalization, Dropout
 
 def build_model(optimizer='adam'):
     # Initialising the CNN
     classifier = Sequential()
 
-    # Step 1 - Convolution
-    classifier.add(Conv2D(32, (3, 3), input_shape = (64, 64, 3), activation = 'relu'))
+# Block 1
+classifier.add(Conv2D(64, (3, 3), input_shape = (64, 64, 3), activation = 'relu'))
+classifier.add(BatchNormalization())
+classifier.add(MaxPooling2D(pool_size = (2, 2)))
 
-    # Step 2 - Pooling
-    classifier.add(MaxPooling2D(pool_size = (2, 2)))
+# Block 2
+classifier.add(Conv2D(128, (3, 3), activation = 'relu'))
+classifier.add(BatchNormalization())
+classifier.add(MaxPooling2D(pool_size = (2, 2)))
 
-    # Adding a second convolutional layer
-    classifier.add(Conv2D(32, (3, 3), activation = 'relu'))
-    classifier.add(MaxPooling2D(pool_size = (2, 2)))
+# Block 3
+classifier.add(Conv2D(256, (3, 3), activation = 'relu'))
+classifier.add(BatchNormalization())
+classifier.add(MaxPooling2D(pool_size = (2, 2)))
 
-    # Step 3 - Flattening
-    classifier.add(Flatten())
+# Flattening
+classifier.add(Flatten())
 
-    # Step 4 - Full connection
-    classifier.add(Dense(units = 128, activation = 'relu'))
-    classifier.add(Dense(units = 26, activation = 'softmax'))
+# Full connection
+classifier.add(Dense(units = 256, activation = 'relu'))
+classifier.add(Dropout(0.5))
+classifier.add(Dense(units = 1, activation = 'sigmoid'))
 
     # Compiling the CNN using categorical_crossentropy
     classifier.compile(optimizer = optimizer, loss = 'categorical_crossentropy', metrics = ['accuracy'])
